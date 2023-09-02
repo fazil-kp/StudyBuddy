@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
 
 class Calendar extends StatefulWidget {
   @override
@@ -13,20 +16,53 @@ class _CalendarState extends State<Calendar> {
   DateTime focusedDay = DateTime.now();
 
   TextEditingController _eventController = TextEditingController();
+  TextEditingController _editEventController = TextEditingController();
 
   @override
   void initState() {
     selectedEvents = {};
+    _loadSavedEvents(); // Load events from SharedPreferences
     super.initState();
   }
 
-  List<Event> _getEventsfromDay(DateTime date) {
+  // Load saved events from SharedPreferences
+  Future<void> _loadSavedEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final eventsJson = prefs.getString('events');
+    if (eventsJson != null) {
+      final Map<String, dynamic> eventsMap = jsonDecode(eventsJson);
+      selectedEvents = eventsMap.map((key, value) {
+        return MapEntry(
+          DateTime.parse(key),
+          (value as List).map((e) => Event.fromJson(e)).toList(),
+        );
+      });
+      setState(() {});
+    }
+  }
+
+  // Save events to SharedPreferences
+  Future<void> _saveEventsToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final eventsJson = jsonEncode(
+      selectedEvents.map((key, value) {
+        return MapEntry(
+          key.toString(),
+          value.map((e) => e.toJson()).toList(),
+        );
+      }),
+    );
+    await prefs.setString('events', eventsJson);
+  }
+
+  List<Event> _getEventsforDay(DateTime date) {
     return selectedEvents[date] ?? [];
   }
 
   @override
   void dispose() {
     _eventController.dispose();
+    _editEventController.dispose();
     super.dispose();
   }
 
@@ -34,7 +70,7 @@ class _CalendarState extends State<Calendar> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("ESTech Calendar"),
+        title: Text("SSC MANAGER"),
         centerTitle: true,
       ),
       body: Column(
@@ -60,7 +96,7 @@ class _CalendarState extends State<Calendar> {
             selectedDayPredicate: (DateTime date) {
               return isSameDay(selectedDay, date);
             },
-            eventLoader: _getEventsfromDay,
+            eventLoader: _getEventsforDay,
             calendarStyle: CalendarStyle(
               isTodayHighlighted: true,
               selectedDecoration: BoxDecoration(
@@ -99,30 +135,81 @@ class _CalendarState extends State<Calendar> {
           Expanded(
             child: ListView(
               children: [
-                ..._getEventsfromDay(selectedDay).asMap().entries.map(
+                ..._getEventsforDay(selectedDay).asMap().entries.map(
                       (entry) {
                     final int index = entry.key;
                     final Event event = entry.value;
                     return ListTile(
                       title: Row(
                         children: [
+                          Expanded(
+                            child: Text(
+                              event.title,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           IconButton(
                             icon: Icon(
-                              event.isStudied
-                                  ? Icons.check_circle
-                                  : Icons.circle,
-                              color: event.isStudied
-                                  ? Colors.green
-                                  : Colors.red,
+                              event.isStudied ? Icons.check_circle : Icons.circle,
+                              color: event.isStudied ? Colors.green : Colors.red,
                             ),
                             onPressed: () {
                               setState(() {
                                 event.isStudied = !event.isStudied;
+                                _saveEventsToStorage();
                               });
                             },
                           ),
-                          SizedBox(width: 8),
-                          Text(event.title),
+                          IconButton(
+                            icon: Icon(Icons.edit),
+                            onPressed: () {
+                              // Open an edit event dialog
+                              _editEventController.text = event.title;
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text("Edit Subject"),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextFormField(
+                                        controller: _editEventController,
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      child: Text("Cancel"),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: Text("Save"),
+                                      onPressed: () {
+                                        // Handle save edit event action here
+                                        setState(() {
+                                          event.title = _editEventController.text;
+                                          _saveEventsToStorage();
+                                          Navigator.pop(context);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete),
+                            onPressed: () {
+                              // Handle delete event action here
+                              setState(() {
+                                selectedEvents[selectedDay]!.remove(event);
+                                _saveEventsToStorage();
+                              });
+                            },
+                          ),
                         ],
                       ),
                     );
@@ -138,7 +225,7 @@ class _CalendarState extends State<Calendar> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: Text("Add Event"),
+              title: Text("Add Subject"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -168,7 +255,9 @@ class _CalendarState extends State<Calendar> {
 
                       _eventController.clear();
                       Navigator.pop(context);
-                      setState(() {});
+                      setState(() {
+                        _saveEventsToStorage();
+                      });
                     }
                   },
                 ),
@@ -176,7 +265,7 @@ class _CalendarState extends State<Calendar> {
             ),
           );
         },
-        label: Text("Add Event"),
+        label: Text("Add Subject"),
         icon: Icon(Icons.add),
       ),
     );
@@ -188,4 +277,18 @@ class Event {
   bool isStudied;
 
   Event({required this.title, this.isStudied = false});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'isStudied': isStudied,
+    };
+  }
+
+  factory Event.fromJson(Map<String, dynamic> json) {
+    return Event(
+      title: json['title'],
+      isStudied: json['isStudied'],
+    );
+  }
 }

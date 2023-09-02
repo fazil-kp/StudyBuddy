@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "ESTech Calendar",
+      title: "SSC MANAGER",
       debugShowCheckedModeBanner: false,
       home: Calendar(),
     );

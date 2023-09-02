@@ -189,9 +189,3 @@ class Event {
 
   Event({required this.title, this.isStudied = false});
 }
-
-void main() {
-  runApp(MaterialApp(
-    home: Calendar(),
-  ));
-}

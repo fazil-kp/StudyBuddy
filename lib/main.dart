@@ -12,6 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "ESTech Calendar",
+      debugShowCheckedModeBanner: false,
       home: Calendar(),
     );
   }

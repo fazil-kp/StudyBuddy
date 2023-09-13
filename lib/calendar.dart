@@ -70,7 +70,7 @@ class _CalendarState extends State<Calendar> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("SSC MANAGER"),
+        title: Text("StudyBuddy"),
         centerTitle: true,
       ),
       body: Column(
